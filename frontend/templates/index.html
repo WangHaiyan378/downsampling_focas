@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>China S2S-ERA5 Downscaling Workbench</title>
+    <link rel="stylesheet" href="/static/css/style.css?v=20260426-1130">
+</head>
+<body>
+    <div class="meteo-bg" aria-hidden="true"></div>
+
+    <nav class="top-nav">
+        <div class="brand">
+            <span class="brand-mark"></span>
+            <div>
+                <strong>China S2S-ERA5</strong>
+                <span>智能降尺度与偏差校正工作台</span>
+            </div>
+        </div>
+        <div class="system-strip">
+            <span class="region-pill">中国区域 15-55N / 70-140E</span>
+            <span class="status-dot" id="gpuDot"></span>
+            <span id="gpuLabel">检测设备中</span>
+        </div>
+    </nav>
+
+    <main class="app-shell">
+        <section class="intro-band">
+            <div>
+                <p class="eyebrow">Earth System AI Operations</p>
+                <h1>面向中国区域的风场降尺度、评估与推理可视化</h1>
+            </div>
+            <div class="quick-stats">
+                <div><span id="statConfigs">0</span><small>训练配置</small></div>
+                <div><span id="statCkpts">0</span><small>权重文件</small></div>
+                <div><span id="statReports">0</span><small>评估报告</small></div>
+                <div><span id="statPreds">0</span><small>推理输出</small></div>
+            </div>
+        </section>
+
+        <section class="task-grid">
+            <button class="task-tile selected" id="taskHistory" onclick="selectTask('history2era5')">
+                <span class="tile-code">Task A</span>
+                <strong>History to ERA5</strong>
+                <small>多模式历史序列预测未来 ERA5 风场</small>
+            </button>
+            <button class="task-tile" id="taskForecast" onclick="selectTask('fcst2era5fit')">
+                <span class="tile-code">Task B</span>
+                <strong>Forecast to ERA5 Fit</strong>
+                <small>S2S 预报到 ERA5 的偏差校正与拟合</small>
+            </button>
+        </section>
+
+        <section class="workbench">
+            <aside class="control-rail">
+                <div class="tabs" role="tablist">
+                    <button class="tab active" data-module="train" onclick="switchModule('train')">训练</button>
+                    <button class="tab" data-module="evaluate" onclick="switchModule('evaluate')">评估</button>
+                    <button class="tab" data-module="infer" onclick="switchModule('infer')">推理</button>
+                    <button class="tab" data-module="dataset" onclick="switchModule('dataset')">数据集</button>
+                </div>
+
+                <div class="field-group">
+                    <label for="configSelect">训练配置</label>
+                    <select id="configSelect"></select>
+                </div>
+
+                <div class="field-group">
+                    <label for="datasetMode">数据集</label>
+                    <select id="datasetMode">
+                        <option value="raw">ERA5 / S2S 原始数据</option>
+                        <option value="sample_cache">sample_cache 预构建样本</option>
+                        <option value="demo">Demo 随机数据</option>
+                    </select>
+                </div>
+
+                <div class="module-panel active" id="module-train">
+                    <div class="param-row">
+                        <label>Epochs<input type="number" id="trainEpochs" min="1" max="500" value="5"></label>
+                        <label>Batch<input type="number" id="trainBatch" min="1" max="64" value="1"></label>
+                    </div>
+                    <div class="param-row">
+                        <label>LR<input type="text" id="trainLR" value="1e-4"></label>
+                        <label>Device<select id="trainDevice"><option value="cuda">cuda</option><option value="cuda:0">cuda:0</option><option value="auto">auto</option></select></label>
+                    </div>
+                    <button class="primary-action" onclick="runTrain()">启动训练</button>
+                    <button class="ghost-action" onclick="stopTrain()">请求停止</button>
+                </div>
+
+                <div class="module-panel" id="module-evaluate">
+                    <div class="field-group">
+                        <label for="evalCheckpoint">Checkpoint</label>
+                        <select id="evalCheckpoint"></select>
+                    </div>
+                    <div class="param-row">
+                        <label>样本数<input type="number" id="evalSamples" min="1" max="200" value="20"></label>
+                        <label>Device<select id="evalDevice"><option value="auto">auto</option><option value="cuda">cuda</option><option value="cpu">cpu</option></select></label>
+                    </div>
+                    <div class="param-row">
+                        <label>Lead Min<input type="number" id="leadMin" min="1" max="45" value="10"></label>
+                        <label>Lead Max<input type="number" id="leadMax" min="1" max="45" value="45"></label>
+                    </div>
+                    <label class="full-label">RMSE 分组<input type="text" id="leadGroups" value="01-10,11-20,21-30,31-40"></label>
+                    <button class="primary-action" onclick="runEvaluate()">启动评估</button>
+                </div>
+
+                <div class="module-panel" id="module-infer">
+                    <div class="field-group">
+                        <label for="inferCheckpoint">Checkpoint</label>
+                        <select id="inferCheckpoint"></select>
+                    </div>
+                    <div class="param-row">
+                        <label>样本数<input type="number" id="inferSamples" min="1" max="100" value="5"></label>
+                        <label>Device<select id="inferDevice"><option value="auto">auto</option><option value="cuda">cuda</option><option value="cpu">cpu</option></select></label>
+                    </div>
+                    <label class="full-label">输出目录<input type="text" id="inferOutput" value="outputs/web_infer"></label>
+                    <button class="primary-action" onclick="runInfer()">启动推理</button>
+                </div>
+
+                <div class="module-panel" id="module-dataset">
+                    <div class="param-row">
+                        <label>来源<select id="heatSource"><option value="sample_cache">sample_cache</option><option value="demo">demo</option></select></label>
+                        <label>任务<select id="heatTask"><option value="task_b">Task B</option><option value="task_a">Task A</option></select></label>
+                    </div>
+                    <div class="param-row">
+                        <label>变量<select id="heatVar"><option value="wind10m">wind10m</option><option value="wind100m">wind100m</option><option value="ssrd">ssrd</option></select></label>
+                        <label>字段<select id="heatField"><option value="input">输入</option><option value="target">ERA5 目标</option></select></label>
+                    </div>
+                    <div class="param-row">
+                        <label>Lead<input type="number" id="heatLead" min="0" max="44" value="0"></label>
+                        <label>模式<select id="heatModel"><option value="mean">多模式均值</option><option value="0">CMA</option><option value="1">ECMWF</option><option value="2">NECP</option><option value="3">UNKO</option></select></label>
+                    </div>
+                    <button class="primary-action" onclick="loadDatasetHeatmap()">载入热力图</button>
+                </div>
+            </aside>
+
+            <section class="display-deck">
+                <div class="status-cards">
+                    <article><small>当前任务</small><strong id="metricTask">Task A</strong></article>
+                    <article><small>运行状态</small><strong id="metricState">待命</strong></article>
+                    <article><small>进度</small><strong id="metricProgress">0%</strong></article>
+                    <article><small>耗时</small><strong id="metricElapsed">0s</strong></article>
+                </div>
+
+                <div class="panel-grid">
+                    <section class="panel panel-wide" id="trainView">
+                        <div class="panel-head">
+                            <h2>训练监控</h2>
+                            <span id="trainSummary">等待启动</span>
+                        </div>
+                        <div class="train-kpis">
+                            <div><small>Epoch</small><strong id="trainEpochMetric">--</strong></div>
+                            <div><small>Train Loss</small><strong id="trainLossMetric">--</strong></div>
+                            <div><small>Val Loss</small><strong id="valLossMetric">--</strong></div>
+                        </div>
+                        <canvas id="lossChart" height="260"></canvas>
+                        <div class="log-console" id="runLog"></div>
+                    </section>
+
+                    <section class="panel" id="evalView">
+                        <div class="panel-head">
+                            <h2>评估指标</h2>
+                            <select id="reportSelect" onchange="loadReport(this.value)"></select>
+                        </div>
+                        <div class="metric-table" id="evalMetrics"></div>
+                        <canvas id="leadChart" height="220"></canvas>
+                    </section>
+
+                    <section class="panel" id="rmseView">
+                        <div class="panel-head">
+                            <h2>中国区域 RMSE</h2>
+                            <select id="rmseSelect" onchange="showRmseImage(this.value)"></select>
+                        </div>
+                        <div class="map-frame">
+                            <img id="rmseImage" alt="中国区域 RMSE 空间图">
+                        </div>
+                    </section>
+
+                    <section class="panel" id="inferView">
+                        <div class="panel-head">
+                            <h2>推理风速动态</h2>
+                            <select id="predictionSelect" onchange="loadPredictionFrames(this.value)"></select>
+                        </div>
+                        <canvas id="windCanvas" height="320"></canvas>
+                        <div class="timeline">
+                            <button onclick="toggleAnimation()" id="animButton">播放</button>
+                            <input type="range" id="frameSlider" min="0" max="0" value="0" oninput="showFrame(Number(this.value))">
+                            <span id="frameLabel">Lead --</span>
+                        </div>
+                    </section>
+
+                    <section class="panel" id="datasetView">
+                        <div class="panel-head">
+                            <h2>数据集风速热力图</h2>
+                            <span id="datasetLabel">sample_cache / 中国区域</span>
+                        </div>
+                        <canvas id="datasetCanvas" height="320"></canvas>
+                    </section>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script src="/static/js/app.js?v=20260426-1130"></script>
+</body>
+</html>

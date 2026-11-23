@@ -1,0 +1,69 @@
+task_type: fcst2era5fit
+
+data:
+  era5_root: "D:/downsampling_focas/ERA5/hourly"
+  s2s_root: "D:/downsampling_focas/S2S"
+  lcz_path: "D:/downsampling_focas/LCZ_data/lcz_probability_v3.tif"
+  lcz_band: 1
+  lcz_resampling: "average"
+  models: ["CMA", "ECMWF", "NECP", "UNKO"]
+  s2s_vars: ["wind10m", "wind100m", "ssrd"]
+  era5_target_vars: ["u10", "v10"]
+  static_features: null
+  s2s_grid_h: 121
+  s2s_grid_w: 240
+  era5_grid_h: 721
+  era5_grid_w: 1440
+  grid_h: 121
+  grid_w: 240
+  num_leads: 45
+  demo_grid_h: 16
+  demo_grid_w: 32
+  demo_mode: false
+  sample_cache_root: "D:/downsampling_focas/sample_cache"
+  use_sample_cache: false
+  s2s_var_divisors:
+    wind10m: 1.0
+    wind100m: 1.0
+    ssrd: 10000000.0
+  # 區域訓練：中國大致範圍（0.25° → ~161×281；1.5° → ~28×48）
+  # 想做全球訓練時把 enabled 設為 false 即可
+  region:
+    enabled: true
+    lat_min: 15
+    lat_max: 55
+    lon_min: 70
+    lon_max: 140
+
+model:
+  num_models: 4
+  c_in: 3
+  c_static: 5
+  c_out_uv: 2
+  c_out_conv: 1
+  num_leads: 45
+  d_model: 128
+  d_hidden: 256
+  n_heads: 8
+  n_encoder_layers: 3
+  n_correction_blocks: 4
+  dropout: 0.1
+
+training:
+  epochs: 100
+  batch_size: 1
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  scheduler: cosine
+  warmup_epochs: 5
+  grad_clip: 1.0
+  save_dir: "checkpoints/task_b"
+  log_dir: "logs/task_b"
+
+loss:
+  uv_weight: 1.0
+  conv_weight: 0.5
+  conv_consistency_weight: 0.3
+  direction_weight: 0.2
+  gradient_weight: 0.1
+  lead_decay: 0.95

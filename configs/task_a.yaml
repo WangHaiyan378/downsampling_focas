@@ -1,0 +1,80 @@
+task_type: history2era5
+
+data:
+  era5_root: "D:/downsampling_focas/ERA5/hourly"
+  s2s_root: "D:/downsampling_focas/S2S"
+  lcz_path: "D:/downsampling_focas/LCZ_data/lcz_probability_v3.tif"
+  lcz_band: 1
+  lcz_resampling: "average"   # average / bilinear / nearest / mode
+  models: ["CMA", "ECMWF", "NECP", "UNKO"]
+  s2s_vars: ["wind10m", "wind100m", "ssrd"]
+  era5_target_vars: ["u10", "v10"]
+  static_features: null
+  # S2S 輸入網格（1.5°）
+  s2s_grid_h: 121
+  s2s_grid_w: 240
+  # ERA5 標籤與模型輸出網格（0.25° 原生）
+  era5_grid_h: 721
+  era5_grid_w: 1440
+  # 舊版相容：未設 s2s_grid_* 時會退回 grid_h/w
+  grid_h: 121
+  grid_w: 240
+  # 45 天 S2S 序列作為輸入；輸出 45 個 lead（init+1 … init+45）的 ERA5
+  history_len: 45
+  num_leads: 45
+  # 省略 lead_times 時自動為 [1, 2, …, num_leads]
+  demo_grid_h: 16
+  demo_grid_w: 32
+  demo_mode: false
+  sample_cache_root: "D:/downsampling_focas/sample_cache"
+  # 網格與 lead 數已變，請先執行 scripts/build_sample_cache.py 再改為 true
+  use_sample_cache: false
+  # ssrd 量級 ~1e6–1e7，除以 1e7 避免 FP16 訓練溢位；可自訂
+  s2s_var_divisors:
+    wind10m: 1.0
+    wind100m: 1.0
+    ssrd: 10000000.0
+  # 區域訓練：中國大致範圍（0.25° → ~161×281；1.5° → ~28×48）
+  # 想做全球訓練時把 enabled 設為 false 即可
+  region:
+    enabled: true
+    lat_min: 15
+    lat_max: 55
+    lon_min: 70
+    lon_max: 140
+
+model:
+  num_models: 4
+  c_in: 3
+  c_static: 5
+  c_out_uv: 2
+  c_out_conv: 1
+  history_len: 45
+  num_leads: 45
+  d_model: 128
+  d_hidden: 256
+  n_heads: 8
+  n_encoder_layers: 3
+  n_fusion_layers: 2
+  n_tsdu_layers: 3
+  wavelet_type: "haar"
+  dropout: 0.1
+
+training:
+  epochs: 100
+  batch_size: 1
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  scheduler: cosine
+  warmup_epochs: 5
+  grad_clip: 1.0
+  save_dir: "checkpoints/task_a"
+  log_dir: "logs/task_a"
+
+loss:
+  uv_weight: 1.0
+  conv_weight: 0.5
+  conv_consistency_weight: 0.3
+  direction_weight: 0.2
+  gradient_weight: 0.1
+  lead_decay: 0.95

@@ -1,0 +1,98 @@
+task_type: fcst2era5fit
+
+# 獨立系統 B1：輸入 S2S wind10m（純量風速），輸出 ERA5 wind10m = sqrt(u10^2 + v10^2)
+
+data:
+  era5_root: "D:/downsampling_focas/ERA5/hourly"
+  s2s_root: "D:/downsampling_focas/S2S"
+  lcz_path: "D:/downsampling_focas/LCZ_data/lcz_probability_v3.tif"
+  lcz_band: 1
+  lcz_resampling: "average"
+  models: ["CMA", "ECMWF", "NECP", "UNKO"]
+
+  s2s_vars: ["wind10m"]
+  era5_target_vars: ["wind10m"]     # wind10m 是導出變數：sqrt(u10^2 + v10^2)
+  static_features: null
+
+  s2s_grid_h: 121
+  s2s_grid_w: 240
+  era5_grid_h: 721
+  era5_grid_w: 1440
+  grid_h: 121
+  grid_w: 240
+  num_leads: 45
+  demo_grid_h: 16
+  demo_grid_w: 32
+  demo_mode: false
+
+  sample_cache_root: "D:/downsampling_focas/sample_cache_wind10m"
+  use_sample_cache: false
+
+  s2s_var_divisors:
+    wind10m: 1.0
+  era5_target_divisors:
+    wind10m: 1.0
+  # ---- China + Taiwan land mask / shapefile ----
+  mask_to_china_land: true
+  china_shapefile_dir: "D:/downsampling_focas/shapefile"
+  china_land_mask_path: "D:/downsampling_focas/shapefile/china_land_mask.npy"
+  rebuild_china_mask: false
+  require_china_mask: true
+  include_taiwan: true
+  # taiwan_shapefile_path: null   # 沒給就先找本地 TWN/taiwan*.shp，再 fallback 到 Natural Earth
+  
+  region:
+    enabled: true
+    lat_min: 15
+    lat_max: 55
+    lon_min: 70
+    lon_max: 140
+
+model:
+  num_models: 4
+  c_in: 1                # 單變數輸入
+  c_static: 5
+  c_out_uv: 1            # 單通道純量輸出
+  c_out_conv: 0          # 禁用輻合 head
+  num_leads: 45
+  d_model: 128
+  d_hidden: 256
+  n_heads: 8
+  n_encoder_layers: 3
+  n_correction_blocks: 4
+  dropout: 0.1
+
+  # ---- WaveletLCZForecastEncoder ----
+  wavelet_levels: 2
+  wavelet_type: "haar"
+  wavelet_include_raw: true
+
+  use_lcz_window_cross_attention: true
+  use_lcz_2d_rope: true
+  lcz_attn_window_size: 8
+  lcz_attn_heads: 4          # head_dim = d_model / heads = 32 → 32%4==0，符合 2D RoPE
+  lcz_rope_base: 10000.0
+
+  use_lcz_scale_gate: true
+  scale_gate_hidden_dim: 128
+
+  use_post_lcz_conditioner: false
+
+training:
+  epochs: 50
+  batch_size: 1
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  scheduler: cosine
+  warmup_epochs: 5
+  grad_clip: 1.0
+  save_dir: "checkpoints/task_b_wind10m_new"
+  log_dir: "logs/task_b_wind10m_new"
+
+loss:
+  uv_weight: 1.0
+  conv_weight: 0.0                 # 不使用
+  conv_consistency_weight: 0.0     # 不使用
+  direction_weight: 0.0            # 單通道無方向損失
+  gradient_weight: 0.1
+  lead_decay: 0.95

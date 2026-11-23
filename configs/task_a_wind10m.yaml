@@ -1,0 +1,78 @@
+task_type: history2era5
+
+# 獨立系統 A1：輸入 S2S wind10m 歷史序列，輸出 ERA5 wind10m = sqrt(u10^2 + v10^2)
+
+data:
+  era5_root: "D:/downsampling_focas/ERA5/hourly"
+  s2s_root: "D:/downsampling_focas/S2S"
+  lcz_path: "D:/downsampling_focas/LCZ_data/lcz_probability_v3.tif"
+  lcz_band: 1
+  lcz_resampling: "average"
+  models: ["CMA", "ECMWF", "NECP", "UNKO"]
+
+  s2s_vars: ["wind10m"]
+  era5_target_vars: ["wind10m"]
+  static_features: null
+
+  s2s_grid_h: 121
+  s2s_grid_w: 240
+  era5_grid_h: 721
+  era5_grid_w: 1440
+  grid_h: 121
+  grid_w: 240
+  history_len: 45
+  num_leads: 45
+  demo_grid_h: 16
+  demo_grid_w: 32
+  demo_mode: false
+
+  sample_cache_root: "D:/downsampling_focas/sample_cache_wind10m"
+  use_sample_cache: false
+
+  s2s_var_divisors:
+    wind10m: 1.0
+  era5_target_divisors:
+    wind10m: 1.0
+
+  region:
+    enabled: true
+    lat_min: 15
+    lat_max: 55
+    lon_min: 70
+    lon_max: 140
+
+model:
+  num_models: 4
+  c_in: 1
+  c_static: 5
+  c_out_uv: 1
+  c_out_conv: 0
+  history_len: 45
+  num_leads: 45
+  d_model: 128
+  d_hidden: 256
+  n_heads: 8
+  n_encoder_layers: 3
+  n_fusion_layers: 2
+  n_tsdu_layers: 3
+  wavelet_type: "haar"
+  dropout: 0.1
+
+training:
+  epochs: 100
+  batch_size: 1
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  scheduler: cosine
+  warmup_epochs: 5
+  grad_clip: 1.0
+  save_dir: "checkpoints/task_a_wind10m"
+  log_dir: "logs/task_a_wind10m"
+
+loss:
+  uv_weight: 1.0
+  conv_weight: 0.0
+  conv_consistency_weight: 0.0
+  direction_weight: 0.0
+  gradient_weight: 0.1
+  lead_decay: 0.95

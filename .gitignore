@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+
+# 数据集、缓存、权重与评估产物（不纳入本仓库）
+checkpoints/
+ERA5/
+S2S/
+LCZ_data/
+sample_cache/
+shapefile/
+eval_results/
+outputs/
+*.pt
+*.pth
+*.ckpt
+*.nc
+*.npy
+*.npz
+*.rar
+*.tif
+*.tiff
+
+# 运行日志与临时文件
+frontend_last_training_error.txt
+*.tmp
+
+# IDE / OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
